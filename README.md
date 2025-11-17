@@ -8,8 +8,6 @@ Downloader für Matricula Online 🇩🇪 🇦🇹 🇵🇱 🇷🇸 🇱🇺 �
 
 # 🇩🇪 Deutsch
 
-# 🔑 inklusive einer Test-Warteschlange-Datei
-
 ## 🔑 Hauptaufgabe
 
 •	Du kannst URLs von Kirchenbüchern, Archivalien oder Dokumenten von **matricula-online.eu** oder **findbuch.net** eingeben.
