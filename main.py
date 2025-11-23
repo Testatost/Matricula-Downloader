@@ -194,7 +194,6 @@ def extract_matricula_metadata(html_text: str) -> dict:
     meta = {}
 
     # 1️⃣ ORT ERKENNEN
-    # aus Breadcrumb oder Tabelle — beide enthalten den Ort
     m_ort = re.search(r'<th>Pfarre/Ort</th><td><a [^>]*>([^<]+)</a>', html_text)
     if not m_ort:
         m_ort = re.search(r'<li class="breadcrumb-item"><a [^>]*>/[^>]*/([^<]+)/</a>', html_text)
@@ -204,29 +203,24 @@ def extract_matricula_metadata(html_text: str) -> dict:
     if m_ort:
         meta["ort"] = m_ort.group(1).strip()
 
-
-    # 2️⃣ BUCHTITEL ERKENNEN — PRIORITÄT:
-    # A) aus Breadcrumb
+    # 2️⃣ BUCHTITEL ERKENNEN
     m_title = re.search(
         r'<li class="breadcrumb-item active">\s*([^<]+?)\s*\|',
         html_text
     )
 
-    # B) aus Buchtyp-Zeile in der Info-Tabelle
     if not m_title:
         m_title = re.search(
             r'<th>Buchtyp</th><td>([^<]+)</td>',
             html_text
         )
 
-    # C) aus <title>-Tag
     if not m_title:
         m_title = re.search(
             r'<title>([^|]+?)\|',
             html_text
         )
 
-    # D) Fallback: JSON init block (falls vorhanden)
     if not m_title:
         m_json = re.search(r'MatriculaDocView\.init\(\{(.*?)\}\)', html_text, re.DOTALL)
         if m_json:
@@ -236,10 +230,10 @@ def extract_matricula_metadata(html_text: str) -> dict:
                 title_str = m_desc.group(1)
                 if m_book:
                     title_str += " " + m_book.group(1)
-                m_title = [title_str]  # fake regex-like object
+                m_title = [title_str]
 
     if m_title:
-        meta["title"] = m_title.group(1).strip() if hasattr(m_title, "group") else m_title[0]
+        meta["title"] = m_title[0] if isinstance(m_title, list) else m_title.group(1).strip()
 
     m_date = re.search(
         r'<th>Datum von</th><td>([^<]+)</td>.*?<th>Datum bis</th><td>([^<]+)</td>',
@@ -247,15 +241,12 @@ def extract_matricula_metadata(html_text: str) -> dict:
         re.DOTALL
     )
     if m_date:
-        # beide Datumsangaben textuell
         d1 = m_date.group(1).strip()
         d2 = m_date.group(2).strip()
 
-        # nur Jahr extrahieren
         y1 = re.search(r'(\d{4})', d1)
         y2 = re.search(r'(\d{4})', d2)
 
-        # wenn gefunden -> Jahresbereich speichern
         if y1 and y2:
             meta["daterange"] = f"{y1.group(1)}–{y2.group(1)}"
 
@@ -263,89 +254,228 @@ def extract_matricula_metadata(html_text: str) -> dict:
 
 
 # ------------------------------------------------------------
-# BILDURL-EXTRAKTION
+# BILD-URLS / METADATEN je nach Seite
 # ------------------------------------------------------------
 
 def extract_image_urls(book_url: str):
     try:
+        urls = []
+        folder_name = "Unbekannt"
+        meta = {}
+
+        # Grund-HTML laden
         r = requests.get(book_url, headers=HEADERS, timeout=REQ_TIMEOUT)
         r.raise_for_status()
         html_text = r.text
         soup = BeautifulSoup(html_text, "html.parser")
 
         image_urls = []
-
         meta = extract_page_metadata(soup, html_text, book_url)
 
-        # Matricula: JSON hat absolute Priorität
-        if "matricula-online.eu" in book_url:
-            js_meta = extract_matricula_metadata(html_text)
+        # ------------------------------------------------------------
+        # DFG-VIEWER
+        # ------------------------------------------------------------
+        if "dfg-viewer.de" in book_url:
 
-            # Fülle zuerst JS-Daten in meta
+            # page=1 erzwingen
+            if "tx_dlf[page]" not in book_url:
+                sep = "&" if "?" in book_url else "?"
+                book_url = f"{book_url}{sep}tx_dlf[page]=1"
+
+            r = requests.get(book_url, headers=HEADERS, timeout=REQ_TIMEOUT)
+            r.raise_for_status()
+            html = r.text
+            soup = BeautifulSoup(html, "html.parser")
+
+            # Titel
+            title_dd = soup.select_one("dd.tx-dlf-title")
+            title = title_dd.get_text(strip=True) if title_dd else "Unbekannt"
+            title = title.strip()
+
+            # Bestand
+            ctx_dds = soup.select("dl.tx-dlf-metadata-titledata dd")
+            bestand_raw = ctx_dds[1].get_text(strip=True) if len(ctx_dds) >= 2 else ""
+
+            m_bestand = re.search(r"Bestand:\s*(.+)", bestand_raw)
+            bestand_full = m_bestand.group(1).strip() if m_bestand else ""
+
+            ort_raw = bestand_full.split(" - ")[0]
+            ort_parts = ort_raw.split(" ", 1)
+            ort = ort_parts[1].strip() if len(ort_parts) > 1 else ort_raw.strip()
+
+            m_years = re.search(r"(\d{4})\D+(\d{4})", bestand_full)
+            years = f"{m_years.group(1)}-{m_years.group(2)}" if m_years else ""
+
+            meta = {
+                "title": title,
+                "ort": ort,
+                "daterange": years,
+            }
+
+            folder_name = safe_name(f"{title} {years}") if years else safe_name(title)
+
+            options = soup.select("select[name='tx_dlf[page]'] option")
+            total_pages = len(options) if options else 1
+
+            m = re.search(
+                r'tx_dlf_viewer\s*=\s*new dlfViewer\([^)]*?images\s*:\s*\[\s*\{\s*"url"\s*:\s*"([^"]+)"',
+                html,
+                re.DOTALL
+            )
+
+            if not m:
+                return [], folder_name, meta
+
+            first_url = m.group(1).replace("\\/", "/")
+            base_url, filename = first_url.rsplit("/", 1)
+
+            m2 = re.match(r"(.+_)(\d{4})_(\d{4})_(\d{3}\.jpg)", filename)
+            if not m2:
+                return [first_url], folder_name, meta
+
+            prefix, first_page, fix_mid, tail = m2.groups()
+
+            urls = []
+            for i in range(1, total_pages + 1):
+                urls.append(f"{base_url}/{prefix}{i:04d}_{fix_mid}_{tail}")
+
+            return urls, folder_name, meta
+
+        # ------------------------------------------------------------
+        # MATRICULA
+        # ------------------------------------------------------------
+        if "matricula-online.eu" in book_url:
+
+            js_meta = extract_matricula_metadata(html_text)
             for k, v in js_meta.items():
                 if v:
                     meta[k] = v
 
-            # Dann ergänze mit HTML
             meta = enrich_matricula_metadata(soup, html_text, meta)
 
-            # Falls Titel immer noch fehlt → Fallback
             if not meta.get("title"):
                 meta["title"] = extract_book_title(soup, book_url)
 
-        if meta.get("ort"):
-            folder_name = safe_name(meta["ort"])
-        else:
-            folder_name = extract_book_title(soup, book_url)
+            folder_name = safe_name(meta.get("ort", meta["title"]))
 
-        if "MatriculaDocView" in html_text:
-            script_tags = soup.find_all("script")
-            for tag in script_tags:
-                text = tag.string or tag.text
-                if not text or '"files": [' not in text:
-                    continue
-                m_files = re.search(r'"files":\s*(\[[^\]]+\])', text)
-                if not m_files:
-                    continue
-                raw_list = m_files.group(1)
-                encoded_files = re.findall(r'"(/image/[^"]+)"', raw_list)
-                for ef in encoded_files:
-                    b64 = ef.split("/image/")[-1].strip("/")
-                    try:
-                        missing_padding = len(b64) % 4
-                        if missing_padding:
-                            b64 += "=" * (4 - missing_padding)
-                        decoded = base64.b64decode(b64).decode("utf-8")
-                        if decoded.startswith("http"):
-                            image_urls.append(decoded)
-                        else:
-                            image_urls.append(f"https://img.data.matricula-online.eu{decoded}")
-                    except:
+            if "MatriculaDocView" in html_text:
+                script_tags = soup.find_all("script")
+                for tag in script_tags:
+                    text = tag.string or tag.text
+                    if not text or '"files": [' not in text:
                         continue
-                if image_urls:
-                    break
 
-        elif "findbuch.net" in book_url:
-            possible_imgs = re.findall(r"/a_pics/ks/[^\"']+\.jpg", html_text)
-            for img_path in possible_imgs:
-                full_url = f"https://www.findbuch.net{img_path}"
-                if full_url not in image_urls:
-                    image_urls.append(full_url)
+                    m_files = re.search(r'"files":\s*(\[[^\]]+\])', text)
+                    if not m_files:
+                        continue
+                    raw_list = m_files.group(1)
+
+                    encoded = re.findall(r'"(/image/[^"]+)"', raw_list)
+                    for ef in encoded:
+                        b64 = ef.split("/image/")[-1].strip("/")
+                        try:
+                            missing = len(b64) % 4
+                            if missing:
+                                b64 += "=" * (4 - missing)
+                            decoded = base64.b64decode(b64).decode("utf-8")
+                            if decoded.startswith("http"):
+                                image_urls.append(decoded)
+                            else:
+                                image_urls.append("https://img.data.matricula-online.eu" + decoded)
+                        except:
+                            continue
+
+                return sorted(set(image_urls)), folder_name, meta
+
+        # ------------------------------------------------------------
+        # FINDBUCH.NET
+        # ------------------------------------------------------------
+        if "findbuch.net" in book_url:
+            possible = re.findall(r"/a_pics/ks/[^\"']+\.jpg", html_text)
+            for p in possible:
+                full = f"https://www.findbuch.net{p}"
+                if full not in image_urls:
+                    image_urls.append(full)
 
             if not image_urls:
                 onclick_links = re.findall(r"javascript:m_click\(\d+\)", html_text)
                 if onclick_links:
                     base_guess = re.search(r'(/a_pics/ks/[^\s"]+_)\d{3}\.jpg', html_text)
                     if base_guess:
-                        base_url = f"https://www.findbuch.net{base_guess.group(1)}"
+                        base_url = "https://www.findbuch.net" + base_guess.group(1)
                         indices = [int(x.split("(")[1].split(")")[0]) for x in onclick_links]
                         for i in indices:
                             img_num = f"{i+3:03d}"
-                            image_urls.append(f"{base_url}{img_num}.jpg")
+                            image_urls.append(base_url + img_num + ".jpg")
 
-        return sorted(set(image_urls)), folder_name, meta
+            folder_name = extract_book_title(soup, book_url)
 
-    except:
+            return sorted(set(image_urls)), folder_name, meta
+
+        # ------------------------------------------------------------
+        # ARCHIVIO DIOCESANO REGGIO CALABRIA–BOVA (ITALIEN)
+        # ------------------------------------------------------------
+        if "archiviodiocesanoreggiobova.it" in book_url:
+
+            # Text der Seite (für die Info-Zeilen)
+            page_text = soup.get_text("\n", strip=True)
+
+            def get_field(label: str) -> str:
+                m = re.search(rf'{label}:\s*([^\n]+)', page_text, re.I)
+                return m.group(1).strip() if m else ""
+
+            file_code = get_field("File") or "page"
+            parish = get_field("Parish") or "Unbekannt"
+            typology = get_field("Typology") or "Unbekannt"
+            period = get_field("Period") or ""
+
+            # Seitenanzahl: "Image 1 of 86"
+            m_total = re.search(r'Image\s+\d+\s+of\s+(\d+)', page_text, re.I)
+            total_pages = int(m_total.group(1)) if m_total else 1
+
+            # Album-ID aus URL
+            m_album = re.search(r"/photo_details/(\d+)/", book_url)
+            album_id = m_album.group(1) if m_album else "unknown"
+
+            # Basis-Dateiname (z.B. MRASRGCLB17821790P001)
+            base_filename = file_code
+            m_fn = re.match(r"(.+?)(\d{3})$", base_filename)
+            if not m_fn:
+                # Falls unerwartetes Format → lieber abbrechen
+                return [], safe_name(parish), {
+                    "ort": parish,
+                    "title": typology,
+                    "daterange": period
+                }
+
+            prefix, first_page = m_fn.groups()
+
+            base_img_url = (
+                f"https://www.archiviodiocesanoreggiobova.it/wp-content/uploads/wp_photo_seller/{album_id}"
+            )
+
+            urls = []
+            for i in range(1, total_pages + 1):
+                fname = f"{prefix}{i:03d}.jpg"
+                urls.append(f"{base_img_url}/watermark_{fname}")
+
+            # Metadaten für die spätere Ordnerlogik
+            meta = {
+                "ort": parish,       # Parish
+                "title": typology,   # Typology
+                "daterange": period  # z.B. 1782-1790
+            }
+
+            # folder_name wird bei Italien im Downloader nicht benutzt,
+            # aber wir geben einen sinnvollen Wert zurück:
+            folder_name = safe_name(f"{typology} {period}".strip() or typology)
+
+            return urls, folder_name, meta
+
+        # Fallback
+        return urls, folder_name, meta
+
+    except Exception:
         return [], "Unbekanntes_Buch", {}
 
 
@@ -366,12 +496,12 @@ def parse_pages(pages_str: str, total: int) -> list[int]:
             try:
                 a, b = map(int, part.split("-"))
                 result.extend(range(a, b + 1))
-            except:
+            except Exception:
                 pass
         else:
             try:
                 result.append(int(part))
-            except:
+            except Exception:
                 pass
 
     return [p for p in sorted(set(result)) if 1 <= p <= total]
@@ -390,14 +520,11 @@ class Downloader:
 
     def run(self):
         total = len(self.books)
-        done = 0
         for idx, b in enumerate(self.books):
             if self.stop_flag():
                 break
 
-            # Fortschritt pro Buch
-            done = idx
-            perc = int((done / total) * 100)
+            perc = int((idx / total) * 100) if total else 0
             self.update("global", perc)
 
             url = b["url"]
@@ -429,35 +556,48 @@ class Downloader:
 
                 img_url = image_urls[i - 1]
 
-                # ---------------------------
-                # NEUE ORDNERVERARBEITUNG
-                # ---------------------------
+                # ------------------------------------------------
+                # ORDNERVERARBEITUNG NACH DOMAIN
+                # ------------------------------------------------
 
-                ort = meta.get("ort", "").strip()
-                if not ort:
-                    ort = meta.get("title", folder_name)
-                ort = safe_name(ort)
+                # 1) ITALIEN: Archivio Diocesano Reggio Calabria–Bova
+                if "archiviodiocesanoreggiobova.it" in url:
+                    parish_raw = (meta.get("ort") or "").strip()
+                    parish_safe = safe_name(parish_raw) if parish_raw else "Unbekannt"
 
-                buchtitel = meta.get("title", "").strip()
-                if not buchtitel:
-                    buchtitel = folder_name
-                buchtitel = safe_name(buchtitel)
+                    title_raw = (meta.get("title") or "").strip() or "Buch"
+                    dater_raw = (meta.get("daterange") or "").strip()
+                    if dater_raw:
+                        base_name = safe_name(f"{title_raw} {dater_raw}")
+                    else:
+                        base_name = safe_name(title_raw)
 
-                dater = meta.get("daterange", "").strip()
-                dater = safe_name(dater)
+                    book_folder = os.path.join(outdir, parish_safe, base_name)
+                    ensure_dir(book_folder)
+                    fn = os.path.join(book_folder, f"{base_name}_{i:03d}.jpg")
 
-                if dater:
-                    subfolder_name = f"{buchtitel} {dater}"
+                # 2) STANDARD: Matricula, DFG, Findbuch
                 else:
-                    subfolder_name = buchtitel
+                    ort_raw = (meta.get("ort") or meta.get("title") or folder_name or "").strip()
+                    ort = safe_name(ort_raw) if ort_raw else "Unbekannt"
 
-                subfolder_name = safe_name(subfolder_name)
+                    title_raw = (meta.get("title") or folder_name or "").strip()
+                    dater_raw = (meta.get("daterange") or "").strip()
 
-                book_folder = os.path.join(outdir, ort, subfolder_name)
-                ensure_dir(book_folder)
+                    if dater_raw:
+                        base_name = f"{title_raw} {dater_raw}"
+                    else:
+                        base_name = title_raw
 
-                fn = os.path.join(book_folder, f"{buchtitel}_{i:03d}.jpg")
+                    base_name = safe_name(base_name) if base_name else "Unbekannt"
 
+                    book_folder = os.path.join(outdir, ort, base_name)
+                    ensure_dir(book_folder)
+                    fn = os.path.join(book_folder, f"{base_name}_{i:03d}.jpg")
+
+                # ------------------------------------------------
+                # DOWNLOAD
+                # ------------------------------------------------
                 try:
                     r = requests.get(img_url, headers=HEADERS, stream=True, timeout=30)
                     r.raise_for_status()
@@ -468,6 +608,7 @@ class Downloader:
                 except Exception as e:
                     self.log(f"  ⚠️ Fehler bei Seite {i}: {e}")
                     errors += 1
+
             self.update("global", 100)
             if errors == 0:
                 self.update(idx, "✅")
@@ -637,7 +778,7 @@ class DownloaderGUI:
         style = ttk.Style()
         try:
             style.theme_use("clam")
-        except:
+        except Exception:
             pass
 
         style.configure(
@@ -699,10 +840,37 @@ class DownloaderGUI:
         if not u:
             messagebox.showwarning(TXT["title"], "Bitte eine Buch-URL eingeben.")
             return
-        if not any(x in u for x in ["matricula-online.eu", "findbuch.net"]):
-            messagebox.showwarning(TXT["title"], "Nur matricula-online.eu oder findbuch.net werden unterstützt.")
+
+        SUPPORTED = [
+            "matricula-online.eu",
+            "dfg-viewer.de",
+            "findbuch.net",
+            "archiviodiocesanoreggiobova.it"
+        ]
+
+        if not any(x in u for x in SUPPORTED):
+            messagebox.showwarning(
+                TXT["title"],
+                "Nur matricula-online.eu, dfg-viewer.de, findbuch.net "
+                "oder archiviodiocesanoreggiobova.it werden unterstützt."
+            )
             return
-        self.books.append({"url": u, "outdir": self.outdir.get().strip() or os.getcwd(), "pages": self.pages.get().strip()})
+
+        if "archiviodiocesanoreggiobova.it" in u:
+            if "/photo_details/" not in u:
+                messagebox.showerror(
+                    TXT["title"],
+                    "Dieser Link ist keine Buchseite.\n\n"
+                    "Bitte öffnen Sie ein einzelnes Bild und kopieren Sie den "
+                    "URL der Buchseite (enthält /photo_details/...)."
+                )
+                return
+
+        self.books.append({
+            "url": u,
+            "outdir": self.outdir.get().strip() or os.getcwd(),
+            "pages": self.pages.get().strip()
+        })
         self.tree.insert("", "end", values=(u, self.pages.get().strip(), "⏳"))
         self.log(f"[+] Buch hinzugefügt: {u}")
         self.url.delete(0, "end")
