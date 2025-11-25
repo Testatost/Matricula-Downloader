@@ -3,7 +3,7 @@
 
 Downloader für Matricula Online 🇩🇪 🇦🇹 🇵🇱 🇷🇸 🇱🇺 🇧🇦 🇸🇮 🇮🇹 
 
-# Folge Webseiten werden unterstützt:
+# Folgende Webseiten werden seit dem Update 1.3 unterstützt:
 
 -> matricula-online.eu
 
