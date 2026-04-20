@@ -3,6 +3,16 @@
 
 Downloader für Matricula Online 🇩🇪 🇦🇹 🇵🇱 🇷🇸 🇱🇺 🇧🇦 🇸🇮 🇮🇹 
 
+# Folgende Webseiten werden seit dem Update 1.3 unterstützt:
+
+-> matricula-online.eu
+
+-> dfg-viewer.de
+
+-> findbuch.net
+
+-> archiviodiocesanoreggiobova.it
+
 
 ![alt text](https://github.com/Testatost/Matricula-Downloader/blob/main/Matricula%20Downloader.png?raw=true)
 
@@ -107,6 +117,14 @@ python3 matricula_downloader.py
 * GUI überarbeitet und auf **DejaVu Sans**-Fonts umgestellt.
 * Wartelistenexport jetzt auch im UTF-8-Textformat.
 
+## 🧰 Update 1.3
+
+* Download-Möglichkeit hinzugefügt:
+
+  -> dfg-viewer.de
+  
+  -> archiviodiocesanoreggiobova.it
+
 ---
 
 ## ⚠️ Haftungsausschluss
@@ -117,6 +135,5 @@ Es besteht **keine Verbindung** zu den Betreibern von Matricula Online oder Find
 
 ---
 
-**Erstellt mit ChatGPT 5 **
-Version: *MatriculaDownloader 1.2 (November 2025)*
+**Bearbeitet mit ChatGPT 5.1 **
 
