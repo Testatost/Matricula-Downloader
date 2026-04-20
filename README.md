@@ -1,139 +1,155 @@
-# MatriculaDownloader
+# Matricula Downloader
 
+<p align="center">
+  <img src="logo.png" alt="Matricula Downloader Logo" width="260"> <br>
+</p>
 
-Downloader für Matricula Online 🇩🇪 🇦🇹 🇵🇱 🇷🇸 🇱🇺 🇧🇦 🇸🇮 🇮🇹 
+Matricula Downloader is a desktop application for downloading scans from **matricula-online.eu** and related supported sources.
 
-# Folgende Webseiten werden seit dem Update 1.3 unterstützt:
+The current source code is based on a modular package in `matriculadownloader/` and is now aligned with the updated desktop-style structure used in the newer downloader projects.
 
--> matricula-online.eu
+![Screenshot](splash.png)
 
--> dfg-viewer.de
+## Overview
 
--> findbuch.net
+The application can:
 
--> archiviodiocesanoreggiobova.it
+- open URLs from `matricula-online.eu`
+- support additional sources such as `dfg-viewer.de`, `findbuch.net`, `archiviodiocesanoreggiobova.it`, and NetX-based archive portals
+- detect scan/image sources on the page
+- generate direct JPEG download links
+- download all pages or selected page ranges
+- queue multiple entries in a waiting list
+- save and load waiting lists as JSON
+- export downloaded JPG folders to PDF
+- show a live log and save the log manually to a text file
+- switch between multiple interface languages
+- remember the selected language and theme
 
+## Requirements
 
-![alt text](https://github.com/Testatost/Matricula-Downloader/blob/main/Matricula%20Downloader.png?raw=true)
+- Python 3.10+
+- PySide6
+- requests
+- beautifulsoup4
+- Pillow
+- selenium
+- webdriver-manager
+- pyinstaller
 
-# 🇩🇪 Deutsch
+## Installation
 
-## 🔑 Hauptaufgabe
-
-•	Du kannst URLs von Kirchenbüchern, Archivalien oder Dokumenten von **matricula-online.eu** oder **findbuch.net** eingeben.
-•	Das Programm durchsucht die Seite automatisch nach den eingebetteten Bildlinks (z. B. Base64-kodierte oder JavaScript-Links).
-•	Daraus erzeugt es **direkte Download-Links zu hochauflösenden JPEG-Seiten**.
-•	Die Scans werden als Einzelseiten (z. B. *Taufbuch_Musterstadt_001.jpg, Taufbuch_Musterstadt_002.jpg, …*) in einen Zielordner heruntergeladen.
-•	Mehrere Bücher können in eine **Warteliste** aufgenommen und nacheinander heruntergeladen werden.
-
----
-
-## 🛠️ Funktionen
-
-### 1.	📚 Buchverwaltung
-
-•	URL, Zielordner und gewünschte Seiten angeben.
-•	Seitenbereiche im Format `1,3,5-10` möglich (leer = alle Seiten).
-•	Mehrere Bücher können hinzugefügt, gelöscht oder geändert werden.
-•	Wartelisten lassen sich als **JSON** oder **Textdatei** exportieren und wieder importieren.
-
-### 2.	⬇️ Download
-
-•	Bilder werden automatisch seitenweise heruntergeladen.
-•	Status je Buch (`✅`, `⚠️`, `❌`) wird in der Tabelle angezeigt.
-•	Gesamtfortschritt wird über eine Fortschrittsleiste angezeigt.
-•	Abbruch (Stop-Button) jederzeit möglich.
-•	Nach einem Neustart kann mit importierter Liste weitergemacht werden.
-
-### 3.	📄 PDF-Erstellung
-
-•	Heruntergeladene Seiten können zu einem **einzigen PDF-Dokument** zusammengefügt werden.
-•	Dateiname = Buchname (z. B. *Taufbuch_Musterstadt.pdf*).
-•	PDF-Erstellung erfolgt direkt über die Benutzeroberfläche.
-
-### 4.	🧾 Logging
-
-•	Alle Aktionen (z. B. „Buch hinzugefügt“, „Download gestartet“, „Seite gespeichert“) erscheinen im Logfenster.
-•	Logs werden mit Uhrzeit angezeigt und automatisch bis zum Ende gescrollt.
-•	Log enthält Unicode und unterstützt Umlaute vollständig (ä, ö, ü, ß).
-
-### 5.	🖥️ Benutzeroberfläche (Tkinter)
-
-•	Intuitive GUI mit **Tabellenansicht** der Warteliste.
-•	Spalten: Buch / ID – Seiten – Status.
-•	Buttons für *Download starten*, *Stoppen*, *Zurücksetzen* und *Als PDF speichern*.
-•	Home-Button zur direkten Öffnung der Matricula-Startseite.
-•	Fortschrittsanzeige in Prozent sowie globaler Balken.
-
-### 6.	💾 Unicode & Kompatibilität
-
-•	Vollständig kompatibel mit **Linux Mint**, **Windows** und **macOS**.
-•	Datei- und Ordnernamen werden automatisch **Unicode-normalisiert (NFC)**.
-•	Alle Umlaute funktionieren korrekt in Pfaden, Dateinamen und Logs.
-•	Für die Anzeige wird die Schriftart **DejaVu Sans** verwendet.
-
----
-
-## 🧩 Installation & Nutzung
-
-1️⃣ **Python 3 installieren** (unter Linux meist schon vorhanden).
-2️⃣ Erforderliche Pakete installieren (einmalig):
+### Windows / PyCharm / virtual environment
 
 ```bash
-pip install requests beautifulsoup4 pillow
+python -m pip install --upgrade pip
+pip install PySide6 requests beautifulsoup4 Pillow selenium webdriver-manager pyinstaller
 ```
 
-3️⃣ Den Code als Datei speichern (z. B. `matricula_downloader.py`).
-4️⃣ Starten über:
+### Linux Mint / Ubuntu
 
 ```bash
-python3 matricula_downloader.py
+sudo apt update
+sudo apt install python3-pip
+python3 -m pip install --upgrade pip
+pip install PySide6 requests beautifulsoup4 Pillow selenium webdriver-manager pyinstaller
 ```
 
-5️⃣ Im Programm:
+## Usage
 
-* URL von Matricula oder Findbuch eingeben,
-* Zielordner wählen,
-* Seiten optional angeben,
-* *➕ Hinzufügen*, dann *⬇️ Herunterladen*.
+1. Start the program.
+2. Enter a supported archive URL.
+3. Choose the target directory.
+4. Optionally enter page ranges such as `1,5,8-10`.
+5. Add one or more entries to the waiting list.
+6. Start the download.
 
----
+## Main features
 
-## 🧠 Hinweise
+### Download queue
 
-•	Das Programm lädt nur öffentlich verfügbare Scans (keine geschützten Inhalte).
-•	Der Download erfolgt direkt von den Servern der jeweiligen Archive.
-•	Die Nutzung unterliegt den **Nutzungsbedingungen von Matricula** bzw. **Findbuch.net**.
-•	Bei Archiven mit vielen Seiten kann der Vorgang mehrere Minuten dauern.
+- multiple books, registers, or archive items can be added to a waiting list
+- entries can be deleted again
+- page ranges can be changed later
+- double-click on a row opens the original URL in the browser
 
----
+### Download logic
 
-## 🧰 Update 1.2
+- the application searches the page for image, preview, or document-related sources
+- direct JPEG download URLs are generated automatically whenever possible
+- pages are downloaded one by one
+- the overall progress is shown in a progress bar
+- each queue item gets a status symbol: `⏳`, `✅`, `⚠️`, `❌`
 
-* Vollständige **Umlautunterstützung** (Linux Mint getestet).
-* **Unicode-normalisierte Pfade (NFC)** für alle Ordner und Dateien.
-* Verbesserte Fehlerbehandlung beim Download.
-* **Home-Button** zur Matricula-Startseite hinzugefügt.
-* GUI überarbeitet und auf **DejaVu Sans**-Fonts umgestellt.
-* Wartelistenexport jetzt auch im UTF-8-Textformat.
+### Supported sources
 
-## 🧰 Update 1.3
+The current code is intended to work with:
 
-* Download-Möglichkeit hinzugefügt:
+- `matricula-online.eu`
+- `dfg-viewer.de`
+- `findbuch.net`
+- `archiviodiocesanoreggiobova.it`
+- `netx.bistum-essen.de`
 
-  -> dfg-viewer.de
-  
-  -> archiviodiocesanoreggiobova.it
+### Folder naming
 
----
+The current code creates folders based on extracted metadata and groups downloads into a readable structure.
 
-## ⚠️ Haftungsausschluss
+```text
+Target folder/
+└── Place/
+    └── Title or Record Type (Years)/
+        ├── Title or Record Type_001.jpg
+        ├── Title or Record Type_002.jpg
+        └── Title or Record Type (Years).pdf
+```
 
-Dieses Programm dient ausschließlich zu Forschungs- und Archivzwecken.
-Die bereitgestellten Funktionen greifen nur auf **öffentlich zugängliche** Inhalte zu.
-Es besteht **keine Verbindung** zu den Betreibern von Matricula Online oder Findbuch.net.
+For some sources, the exact folder structure depends on the metadata that can be extracted from the page.
 
----
+### PDF export
 
-**Bearbeitet mit ChatGPT 5.1 **
+Downloaded JPG files can be converted into a PDF per folder.
 
+### Logging
+
+- messages are shown in the log window inside the application
+- the log can be shown or hidden
+- the log can be saved manually to a chosen `.txt` file
+
+### Interface
+
+- multi-language interface
+- selected language is stored with `QSettings`
+- dark mode / light mode is available
+- selected theme is stored with `QSettings`
+- splash screen and application icon can be bundled for packaged builds
+
+## Source code structure
+
+The source code is split into modules inside `matriculadownloader/`.
+
+### Module summary
+
+- `main.py` – application entry point
+- `app_constants.py` – application name, settings keys, supported domains, headers
+- `i18n.py` – UI texts and language labels
+- `icons.py` – application icon handling and Windows AppUserModelID setup
+- `main_window.py` – full GUI and user interactions
+- `metadata_parser.py` – metadata extraction helpers
+- `models.py` – data models such as `BookEntry`
+- `network.py` – HTTP loading, NetX handling, and download helpers
+- `pdf_utils.py` – PDF export from JPG folders
+- `styles.py` – light and dark Qt stylesheets
+- `text_utils.py` – helper functions for folders, filenames, and page ranges
+- `worker.py` – threaded downloader logic
+
+## Notes
+
+- Page ranges can be entered in formats such as `1,2,5-9`.
+- Waiting lists are stored as `.json`.
+- Some supported sources require Selenium/browser-assisted loading because the page content is generated dynamically.
+- For packaged Windows builds, `icon.ico`, `logo.png`, and `splash.png` can be included through the PyInstaller spec file.
+
+## Disclaimer
+
+This project was created with support from ChatGPT 5.
