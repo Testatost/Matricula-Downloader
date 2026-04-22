@@ -1,23 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_submodules
-
-hiddenimports = collect_submodules("matriculadownloader")
-
-datas = []
-for candidate in (
-    "icon.ico",
-    "icon.png",
-    "logo.png",
-    "banner.png",
-    "splash.png",
-):
-    try:
-        with open(candidate, "rb"):
-            datas.append((candidate, "."))
-    except FileNotFoundError:
-        pass
-
 from PyInstaller.utils.win32.versioninfo import (
     VSVersionInfo,
     FixedFileInfo,
@@ -28,10 +13,44 @@ from PyInstaller.utils.win32.versioninfo import (
     VarStruct,
 )
 
+block_cipher = None
+
+PROJECT_ROOT = Path.cwd()
+APP_NAME = "Matricula Downloader"
+
+hiddenimports = collect_submodules("matriculadownloader")
+
+datas = []
+for filename in (
+    "icon.ico",
+    "icon.png",
+    "logo.png",
+    "banner.png",
+    "splash.png",
+    "header.png",
+):
+    path = PROJECT_ROOT / filename
+    if path.exists():
+        datas.append((str(path), "."))
+
+icon_file = None
+for candidate in ("icon.ico", "icon.png", "logo.png"):
+    candidate_path = PROJECT_ROOT / candidate
+    if candidate_path.exists():
+        icon_file = str(candidate_path)
+        break
+
+splash_file = None
+for candidate in ("splash.png",):
+    candidate_path = PROJECT_ROOT / candidate
+    if candidate_path.exists():
+        splash_file = str(candidate_path)
+        break
+
 version_info = VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=(1, 5, 0, 0),
-        prodvers=(1, 5, 0, 0),
+        filevers=(1, 6, 0, 0),
+        prodvers=(1, 6, 0, 0),
         mask=0x3F,
         flags=0x0,
         OS=0x40004,
@@ -47,11 +66,12 @@ version_info = VSVersionInfo(
                     [
                         StringStruct("CompanyName", "Sebastian (Testatost)"),
                         StringStruct("FileDescription", "Matricula Downloader"),
-                        StringStruct("FileVersion", "1.5.0"),
+                        StringStruct("FileVersion", "1.6.0"),
                         StringStruct("InternalName", "Matricula Downloader"),
                         StringStruct("OriginalFilename", "Matricula Downloader.exe"),
                         StringStruct("ProductName", "Matricula Downloader"),
-                        StringStruct("ProductVersion", "1.5.0"),
+                        StringStruct("ProductVersion", "1.6.0"),
+                        StringStruct("Comments", "Written by Sebastian (Testatost)"),
                     ],
                 )
             ]
@@ -62,7 +82,7 @@ version_info = VSVersionInfo(
 
 a = Analysis(
     ["main.py"],
-    pathex=["."],
+    pathex=[str(PROJECT_ROOT)],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
@@ -76,12 +96,13 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 exe_kwargs = dict(
-    name="Matricula Downloader",
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -91,17 +112,11 @@ exe_kwargs = dict(
     version=version_info,
 )
 
-try:
-    with open("icon.ico", "rb"):
-        exe_kwargs["icon"] = "icon.ico"
-except FileNotFoundError:
-    pass
+if icon_file:
+    exe_kwargs["icon"] = icon_file
 
-try:
-    with open("splash.png", "rb"):
-        exe_kwargs["splash"] = "splash.png"
-except FileNotFoundError:
-    pass
+if splash_file:
+    exe_kwargs["splash"] = splash_file
 
 exe = EXE(
     pyz,

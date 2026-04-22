@@ -1,14 +1,8 @@
-# Matricula Downloader
-
-<p align="center">
-  <img src="logo.png" alt="Matricula Downloader Logo" width="260"> <br>
-</p>
+![Screenshot](banner.png)
 
 Matricula Downloader is a desktop application for downloading scans from **matricula-online.eu** and related supported sources.
 
 The current source code is based on a modular package in `matriculadownloader/` and is now aligned with the updated desktop-style structure used in the newer downloader projects.
-
-![Screenshot](splash.png)
 
 ## Overview
 
